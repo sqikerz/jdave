@@ -58,7 +58,11 @@ public class JDaveSession implements DaveSession {
     @Override
     public int getMaxDecryptedFrameSize(MediaType type, long userId, int frameSize) {
         DaveDecryptor decryptor = this.decryptors.get(userId);
-        if (decryptor == null || type != MediaType.AUDIO) {
+        if (decryptor == null) {
+            return frameSize;
+        }
+
+        if (type != MediaType.AUDIO) {
             return frameSize * 2;
         }
 
@@ -74,7 +78,13 @@ public class JDaveSession implements DaveSession {
     public void decryptOpus(long userId, ByteBuffer encrypted, ByteBuffer decrypted) {
         DaveDecryptor decryptor = decryptors.get(userId);
 
-        decryptor.decrypt(DaveMediaType.AUDIO, encrypted, decrypted);
+        if (decryptor != null) {
+            decryptor.decrypt(DaveMediaType.AUDIO, encrypted, decrypted);
+        } else {
+            // We don't know this user yet, so we assume it is passthrough
+            decrypted.put(encrypted);
+            decrypted.flip();
+        }
     }
 
     @Override
