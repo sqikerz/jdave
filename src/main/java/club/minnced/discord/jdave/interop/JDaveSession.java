@@ -1,6 +1,8 @@
 package club.minnced.discord.jdave.interop;
 
 import club.minnced.discord.jdave.*;
+import club.minnced.discord.jdave.DaveDecryptor.DaveDecryptResultType;
+import club.minnced.discord.jdave.DaveEncryptor.DaveEncryptResultType;
 import club.minnced.discord.jdave.manager.DaveSessionManager;
 import java.nio.ByteBuffer;
 import net.dv8tion.jda.api.audio.dave.DaveProtocolCallbacks;
@@ -21,37 +23,56 @@ public class JDaveSession implements DaveSession {
 
     @Override
     public void assignSsrcToCodec(@NonNull Codec codec, int ssrc) {
-        if (codec == Codec.OPUS) {
-            manager.assignSsrcToCodec(DaveCodec.OPUS, ssrc);
-        }
-    }
-
-    @Override
-    public int getMaxEncryptedFrameSize(@NonNull MediaType type, int frameSize) {
-        if (type != MediaType.AUDIO) {
-            return frameSize * 2;
+        DaveCodec daveCodec = mapCodec(codec);
+        if (daveCodec == DaveCodec.UNKNOWN) {
+            return;
         }
 
-        return manager.getMaxEncryptedFrameSize(DaveMediaType.AUDIO, frameSize);
+        manager.assignSsrcToCodec(daveCodec, ssrc);
     }
 
     @Override
-    public int getMaxDecryptedFrameSize(@NonNull MediaType type, long userId, int frameSize) {
-        if (type != MediaType.AUDIO) {
-            return frameSize * 2;
+    public int getMaxEncryptedFrameSize(@NonNull MediaType mediaType, int frameSize) {
+        DaveMediaType daveMediaType = mapMediaType(mediaType);
+        if (daveMediaType == DaveMediaType.UNKNOWN) {
+            return frameSize;
         }
 
-        return manager.getMaxDecryptedFrameSize(DaveMediaType.AUDIO, userId, frameSize);
+        return manager.getMaxEncryptedFrameSize(daveMediaType, frameSize);
     }
 
     @Override
-    public void encryptOpus(int ssrc, @NonNull ByteBuffer audio, @NonNull ByteBuffer encrypted) {
-        manager.encrypt(DaveMediaType.AUDIO, ssrc, audio, encrypted);
+    public int getMaxDecryptedFrameSize(@NonNull MediaType mediaType, long userId, int frameSize) {
+        DaveMediaType daveMediaType = mapMediaType(mediaType);
+        if (daveMediaType == DaveMediaType.UNKNOWN) {
+            return frameSize;
+        }
+
+        return manager.getMaxDecryptedFrameSize(daveMediaType, userId, frameSize);
     }
 
     @Override
-    public void decryptOpus(long userId, @NonNull ByteBuffer encrypted, @NonNull ByteBuffer decrypted) {
-        manager.decrypt(DaveMediaType.AUDIO, userId, encrypted, decrypted);
+    public boolean encrypt(
+            @NonNull MediaType mediaType, int ssrc, @NonNull ByteBuffer data, @NonNull ByteBuffer encrypted) {
+        DaveMediaType daveMediaType = mapMediaType(mediaType);
+        if (daveMediaType == DaveMediaType.UNKNOWN) {
+            return false;
+        }
+
+        DaveEncryptResultType result = manager.encrypt(daveMediaType, ssrc, data, encrypted);
+        return result == DaveEncryptResultType.SUCCESS;
+    }
+
+    @Override
+    public boolean decrypt(
+            @NonNull MediaType mediaType, long userId, @NonNull ByteBuffer encrypted, @NonNull ByteBuffer decrypted) {
+        DaveMediaType daveMediaType = mapMediaType(mediaType);
+        if (daveMediaType == DaveMediaType.UNKNOWN) {
+            return false;
+        }
+
+        DaveDecryptResultType result = manager.decrypt(daveMediaType, userId, encrypted, decrypted);
+        return result == DaveDecryptResultType.SUCCESS;
     }
 
     @Override
@@ -110,5 +131,23 @@ public class JDaveSession implements DaveSession {
     @Override
     public void onMLSWelcome(int transitionId, @NonNull ByteBuffer welcome) {
         manager.onMLSWelcome(transitionId, welcome);
+    }
+
+    @NonNull
+    private DaveMediaType mapMediaType(@NonNull MediaType mediaType) {
+        if (mediaType == MediaType.AUDIO) {
+            return DaveMediaType.AUDIO;
+        }
+
+        return DaveMediaType.UNKNOWN;
+    }
+
+    @NonNull
+    private DaveCodec mapCodec(@NonNull Codec codec) {
+        if (codec == Codec.OPUS) {
+            return DaveCodec.OPUS;
+        }
+
+        return DaveCodec.UNKNOWN;
     }
 }

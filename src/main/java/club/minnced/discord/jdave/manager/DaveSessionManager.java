@@ -3,6 +3,8 @@ package club.minnced.discord.jdave.manager;
 import static club.minnced.discord.jdave.DaveConstants.MLS_NEW_GROUP_EXPECTED_EPOCH;
 
 import club.minnced.discord.jdave.*;
+import club.minnced.discord.jdave.DaveDecryptor.DaveDecryptResultType;
+import club.minnced.discord.jdave.DaveEncryptor.DaveEncryptResultType;
 import club.minnced.discord.jdave.ffi.LibDave;
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -86,21 +88,22 @@ public class DaveSessionManager implements AutoCloseable {
         return (int) decryptor.getMaxPlaintextByteSize(type, frameSize);
     }
 
-    public void encrypt(
+    @NonNull
+    public DaveEncryptResultType encrypt(
             @NonNull DaveMediaType type, int ssrc, @NonNull ByteBuffer audio, @NonNull ByteBuffer encrypted) {
-        encryptor.encrypt(type, ssrc, audio, encrypted);
+        DaveEncryptor.DaveEncryptorResult result = encryptor.encrypt(type, ssrc, audio, encrypted);
+        return result.type();
     }
 
-    public void decrypt(
+    @NonNull
+    public DaveDecryptResultType decrypt(
             @NonNull DaveMediaType type, long userId, @NonNull ByteBuffer encrypted, @NonNull ByteBuffer decrypted) {
         DaveDecryptor decryptor = decryptors.get(userId);
 
         if (decryptor != null) {
-            decryptor.decrypt(type, encrypted, decrypted);
+            return decryptor.decrypt(type, encrypted, decrypted).type();
         } else {
-            // We don't know this user yet, so we assume it is passthrough
-            decrypted.put(encrypted);
-            decrypted.flip();
+            return DaveDecryptResultType.FAILURE;
         }
     }
 
