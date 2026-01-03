@@ -109,7 +109,7 @@ public class JDaveSession implements DaveSession {
     }
 
     @Override
-    public void onDaveProtocolPrepareEpoch(@NonNull String epoch, int protocolVersion) {
+    public void onDaveProtocolPrepareEpoch(long epoch, int protocolVersion) {
         manager.onDaveProtocolPrepareEpoch(epoch, protocolVersion);
     }
 

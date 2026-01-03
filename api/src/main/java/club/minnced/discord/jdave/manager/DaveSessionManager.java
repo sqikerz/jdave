@@ -142,7 +142,7 @@ public class DaveSessionManager implements AutoCloseable {
         executeProtocolTransition(transitionId);
     }
 
-    public void onDaveProtocolPrepareEpoch(@NonNull String epoch, int protocolVersion) {
+    public void onDaveProtocolPrepareEpoch(long epoch, int protocolVersion) {
         log.debug("Handle dave protocol prepare epoch epoch={} protocolVersion={}", epoch, protocolVersion);
         handlePrepareEpoch(epoch, (short) protocolVersion);
     }
@@ -212,8 +212,8 @@ public class DaveSessionManager implements AutoCloseable {
         }
     }
 
-    private void handlePrepareEpoch(@NonNull String epoch, int protocolVersion) {
-        if (!MLS_NEW_GROUP_EXPECTED_EPOCH.equals(epoch)) {
+    private void handlePrepareEpoch(long epoch, int protocolVersion) {
+        if (epoch != MLS_NEW_GROUP_EXPECTED_EPOCH) {
             return;
         }
 
