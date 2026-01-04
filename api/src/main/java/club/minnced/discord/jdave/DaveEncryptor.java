@@ -7,6 +7,8 @@ import club.minnced.discord.jdave.ffi.LibDaveEncryptorBinding;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.nio.ByteBuffer;
+
+import club.minnced.discord.jdave.ffi.NativeUtils;
 import org.jspecify.annotations.NonNull;
 
 public class DaveEncryptor implements AutoCloseable {
@@ -16,6 +18,8 @@ public class DaveEncryptor implements AutoCloseable {
     private DaveEncryptor(@NonNull MemorySegment encryptor, @NonNull DaveSessionImpl session) {
         this.encryptor = encryptor;
         this.session = session;
+
+        LibDaveEncryptorBinding.setPassthroughMode(encryptor, true);
     }
 
     @NonNull
@@ -27,14 +31,16 @@ public class DaveEncryptor implements AutoCloseable {
         LibDaveEncryptorBinding.destroyEncryptor(encryptor);
     }
 
-    public void prepareTransition(long selfUserId, int protocolVersion) {
+    public boolean prepareTransition(long selfUserId, int protocolVersion) {
         boolean disabled = protocolVersion == DaveConstants.DISABLED_PROTOCOL_VERSION;
 
         if (!disabled) {
             try (DaveKeyRatchet keyRatchet = DaveKeyRatchet.create(session, Long.toUnsignedString(selfUserId))) {
                 LibDaveEncryptorBinding.setKeyRatchet(encryptor, keyRatchet.getMemorySegment());
+                return !NativeUtils.isNull(keyRatchet.getMemorySegment());
             }
         }
+        return false;
     }
 
     public void processTransition(int protocolVersion) {

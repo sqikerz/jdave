@@ -1,5 +1,6 @@
 package club.minnced.discord.jdave.manager;
 
+import static club.minnced.discord.jdave.DaveConstants.DISABLED_PROTOCOL_VERSION;
 import static club.minnced.discord.jdave.DaveConstants.MLS_NEW_GROUP_EXPECTED_EPOCH;
 
 import club.minnced.discord.jdave.*;
@@ -27,6 +28,8 @@ public class DaveSessionManager implements AutoCloseable {
     private final DaveEncryptor encryptor;
     private final Map<Long, DaveDecryptor> decryptors = new ConcurrentHashMap<>();
     private final Map<Integer, Integer> preparedTransitions = new ConcurrentHashMap<>();
+
+    private int currentProtocolVersion = DISABLED_PROTOCOL_VERSION;
 
     private DaveSessionManager(long selfUserId, long channelId, @NonNull DaveSessionManagerCallbacks callbacks) {
         this(selfUserId, channelId, callbacks, DaveSessionImpl.create(null));
@@ -110,7 +113,8 @@ public class DaveSessionManager implements AutoCloseable {
     @SuppressWarnings("resource")
     public void addUser(long userId) {
         log.debug("Adding user {}", userId);
-        decryptors.computeIfAbsent(userId, id -> DaveDecryptor.create());
+        DaveDecryptor decryptor = decryptors.computeIfAbsent(userId, id -> DaveDecryptor.create());
+        decryptor.prepareTransition(session, userId, currentProtocolVersion);
     }
 
     public void removeUser(long userId) {
@@ -133,9 +137,6 @@ public class DaveSessionManager implements AutoCloseable {
                 protocolVersion);
 
         prepareProtocolTransition(transitionId, protocolVersion);
-        if (transitionId != DaveConstants.INIT_TRANSITION_ID) {
-            callbacks.sendDaveProtocolReadyForTransition(transitionId);
-        }
     }
 
     public void onDaveProtocolExecuteTransition(int transitionId) {
@@ -168,9 +169,6 @@ public class DaveSessionManager implements AutoCloseable {
             case DaveSessionImpl.CommitResult.Success success -> {
                 if (success.joined()) {
                     prepareProtocolTransition(transitionId, session.getProtocolVersion());
-                    if (transitionId != DaveConstants.INIT_TRANSITION_ID) {
-                        callbacks.sendDaveProtocolReadyForTransition(transitionId);
-                    }
                 } else {
                     sendInvalidCommitWelcome(transitionId);
                     handleDaveProtocolInit(transitionId);
@@ -185,9 +183,6 @@ public class DaveSessionManager implements AutoCloseable {
 
         if (joinedGroup) {
             prepareProtocolTransition(transitionId, session.getProtocolVersion());
-            if (transitionId != DaveConstants.INIT_TRANSITION_ID) {
-                callbacks.sendDaveProtocolReadyForTransition(transitionId);
-            }
         } else {
             sendInvalidCommitWelcome(transitionId);
             handleDaveProtocolInit(transitionId);
@@ -206,7 +201,6 @@ public class DaveSessionManager implements AutoCloseable {
         log.debug("Initializing dave protocol session for protocol version {}", protocolVersion);
         if (protocolVersion > DaveConstants.DISABLED_PROTOCOL_VERSION) {
             handlePrepareEpoch(MLS_NEW_GROUP_EXPECTED_EPOCH, protocolVersion);
-            session.sendMarshalledKeyPackage(callbacks::sendMLSKeyPackage);
         } else {
             prepareProtocolTransition(DaveConstants.INIT_TRANSITION_ID, protocolVersion);
             executeProtocolTransition(DaveConstants.INIT_TRANSITION_ID);
@@ -219,6 +213,7 @@ public class DaveSessionManager implements AutoCloseable {
         }
 
         session.initialize((short) protocolVersion, channelId, Long.toUnsignedString(selfUserId));
+        session.sendMarshalledKeyPackage(callbacks::sendMLSKeyPackage);
     }
 
     private void prepareProtocolTransition(int transitionId, int protocolVersion) {
@@ -232,9 +227,15 @@ public class DaveSessionManager implements AutoCloseable {
         });
 
         if (transitionId == DaveConstants.INIT_TRANSITION_ID) {
-            encryptor.prepareTransition(selfUserId, protocolVersion);
+            if (encryptor.prepareTransition(selfUserId, protocolVersion)) {
+                encryptor.processTransition(protocolVersion);
+            } else {
+                encryptor.processTransition(DISABLED_PROTOCOL_VERSION);
+            }
         } else {
             preparedTransitions.put(transitionId, protocolVersion);
+            currentProtocolVersion = protocolVersion;
+            callbacks.sendDaveProtocolReadyForTransition(transitionId);
         }
     }
 
