@@ -24,6 +24,10 @@ Windows:
 
 [![](https://img.shields.io/maven-central/v/club.minnced/jdave-native-win-x86-64?color=blue&label=win-x86-64)](https://search.maven.org/artifact/club.minnced/jdave-native-win-x86-64)
 
+MacOS:
+
+[![](https://img.shields.io/maven-central/v/club.minnced/jdave-native-darwin?color=blue&label=darwin)](https://search.maven.org/artifact/club.minnced/jdave-native-darwin)
+
 ## Installation
 
 The coordinates for the dependency include the target platform, currently only one is supported.
@@ -35,11 +39,12 @@ repositories {
 
 dependencies {
     // Interface to use for libraries
-    implementation("club.minnced:jdave-api:0.1.0-rc.3")
+    implementation("club.minnced:jdave-api:0.1.0-rc.4")
 
     // Compiled natives for libdave for the specified platform
-    implementation("club.minnced:jdave-native-linux-x86-64:0.1.0-rc.3")
-    implementation("club.minnced:jdave-native-win-x86-64:0.1.0-rc.3")
+    implementation("club.minnced:jdave-native-linux-x86-64:0.1.0-rc.4")
+    implementation("club.minnced:jdave-native-win-x86-64:0.1.0-rc.4")
+    implementation("club.minnced:jdave-native-darwin:0.1.0-rc.4")
 }
 ```
 
